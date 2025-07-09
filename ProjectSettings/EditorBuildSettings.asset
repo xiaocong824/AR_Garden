@@ -4,7 +4,13 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/_AR_Garden/Scene/AR_GardenDemo.unity
+    guid: 333ba526b20344678925153539f8251a
+  - enabled: 0
+    path: Assets/_AR_Garden_version1/xiaocong/SCENE.unity
+    guid: 39ae0e546b9edc0408d3b11c6a7c2814
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: a360d7e611dfa426995613067dca655a, type: 2}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 285cd4c267f23412184c5e3087f1bd5c, type: 2}
