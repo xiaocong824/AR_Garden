@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Video;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
+using UnityEngine.XR;
+using Oculus.Interaction;
 
 public class VideoPanel : MonoBehaviour
 {
-    [SerializeField] private Toggle _toggle;
+    [SerializeField] private Button _button;
     [SerializeField] private Sprite _pauseSprite;
     [SerializeField] private Sprite _playSprite;
     [SerializeField] private VideoPlayer _videoPlayer;
@@ -17,7 +20,7 @@ public class VideoPanel : MonoBehaviour
     {
         // 初始化状态
         _isPlaying = true;
-        UpdateToggleVisual();
+        UpdateButtonVisual();
         
         // 确保VideoPlayer初始状态
         if (_videoPlayer != null)
@@ -42,7 +45,7 @@ public class VideoPanel : MonoBehaviour
             _videoPlayer.Pause();
         }
         
-        UpdateToggleVisual();
+        UpdateButtonVisual();
     }
     
     // 手动设置为播放状态
@@ -55,7 +58,7 @@ public class VideoPanel : MonoBehaviour
             _videoPlayer.Play();
         }
         
-        UpdateToggleVisual();
+        UpdateButtonVisual();
     }
     
     // 手动设置为暂停状态
@@ -68,21 +71,18 @@ public class VideoPanel : MonoBehaviour
             _videoPlayer.Pause();
         }
         
-        UpdateToggleVisual();
+        UpdateButtonVisual();
     }
     
-    private void UpdateToggleVisual()
+    private void UpdateButtonVisual()
     {
-        // 更新Toggle的视觉状态（不触发事件）
-        _toggle.SetIsOnWithoutNotify(_isPlaying);
-        
         if (_isPlaying)
         {
-            _toggle.GetComponent<Image>().sprite = _pauseSprite;
+            _button.GetComponent<Image>().sprite = _pauseSprite;
         }
         else
         {
-            _toggle.GetComponent<Image>().sprite = _playSprite;
+            _button.GetComponent<Image>().sprite = _playSprite;
         }
     }
 

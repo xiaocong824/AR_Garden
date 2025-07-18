@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!28 &-1153858491269705611
+--- !u!28 &-9012214625795767916
 Texture2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -61,7 +61,7 @@ MonoBehaviour:
   m_Name: SourceHanSansSC-Normal SDF
   m_EditorClassIdentifier: 
   hashCode: 0
-  material: {fileID: 3583328198903306909}
+  material: {fileID: 7128335236332169880}
   materialHashCode: 0
   m_Version: 1.1.0
   m_SourceFontFileGUID: a9ea377aafef8447daff96afe2b92a32
@@ -93,7 +93,7 @@ MonoBehaviour:
   m_GlyphTable: []
   m_CharacterTable: []
   m_AtlasTextures:
-  - {fileID: -1153858491269705611}
+  - {fileID: -9012214625795767916}
   m_AtlasTextureIndex: 0
   m_IsMultiAtlasTexturesEnabled: 0
   m_ClearDynamicDataOnBuild: 0
@@ -182,7 +182,7 @@ MonoBehaviour:
   boldSpacing: 7
   italicStyle: 35
   tabSize: 10
---- !u!21 &3583328198903306909
+--- !u!21 &7128335236332169880
 Material:
   serializedVersion: 8
   m_ObjectHideFlags: 0
@@ -218,7 +218,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: -1153858491269705611}
+        m_Texture: {fileID: -9012214625795767916}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _OutlineTex:
