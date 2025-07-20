@@ -16,13 +16,18 @@ public class GirdingGuideManager : MonoBehaviour
     [SerializeField] private GameObject Pipe_Beacon;
     [SerializeField] private GameObject Knife;
     [SerializeField] private GameObject Knife_Beacon;
+    [SerializeField] private GameObject Knife_Beacon2;
     [SerializeField] private GameObject Clip;
 
     [Header("Working Zone")]
     [SerializeField] private GameObject WorkingZone;
     [SerializeField] private Image WorkingZoneImage; // WorkingZone的Image组件
-    [SerializeField] private SpriteRenderer Tag_zhenmu;
-    [SerializeField] private SpriteRenderer Tag_jiesumu;
+    [SerializeField] private Image Tag_zhenmu;
+    [SerializeField] private Image Tag_jiesumu;
+    [SerializeField] private Image Tag_Pipe;
+    [SerializeField] private Image Tag_Knife;
+    [SerializeField] private Image Tag_Clip;
+
 
     [Header("UI Sprite")]
     [SerializeField] private Sprite green_workingzone;
@@ -41,6 +46,8 @@ public class GirdingGuideManager : MonoBehaviour
     [Header("Audio")]
     [SerializeField] private AudioClip correctSound;
     [SerializeField] private AudioClip incorrectSound;
+    [SerializeField] private AudioClip attachSound;
+
     private AudioSource audioSource;
 
     [Header("Angle Check Settings")]
@@ -74,24 +81,15 @@ public class GirdingGuideManager : MonoBehaviour
         // 检查当前步骤的完成条件
         CheckCurrentStepCompletion();
 
-        // 更新Beacon的视觉反馈
-        if (!stepCompleted)
+        // 在第二步时更新Beacon的视觉反馈
+        if (currentStep == 1 && !stepCompleted && Knife != null && Knife_Beacon != null)
         {
-            switch (currentStep)
-            {
-                case 1: // 第二步：刀具匹配反馈
-                    if (Knife != null && Knife_Beacon != null)
-                    {
-                        UpdateBeaconVisualFeedback(Knife);
-                    }
-                    break;
-                case 2: // 第三步：导管位置反馈
-                    if (Pipe != null && Pipe_Beacon != null)
-                    {
-                        UpdatePipeBeaconFeedback(Pipe);
-                    }
-                    break;
-            }
+            UpdateBeaconVisualFeedback(Knife);
+        }
+
+        if (currentStep == 2 && !stepCompleted && Pipe != null && Pipe_Beacon != null)
+        {
+            UpdateBeaconVisualFeedback(Pipe);
         }
     }
 
@@ -190,6 +188,12 @@ public class GirdingGuideManager : MonoBehaviour
         if (stepCompleted) return;
 
         bool conditionMet = false;
+        
+        // 添加当前步骤的调试信息
+        if (currentStep == 2)
+        {
+            Debug.Log($"正在检查第三步，当前步骤: {currentStep}");
+        }
 
         switch (currentStep)
         {
@@ -212,34 +216,93 @@ public class GirdingGuideManager : MonoBehaviour
                     Knife_Beacon.SetActive(true);
                 }
                 conditionMet = IsObjectInWorkingZone(Knife) && AngleCheck(Knife);
+                if(Tag_Knife != null)
+                {
+                    Tag_Knife.sprite = Tag_yellow;
+                }
                 if(conditionMet)
                 {
                     // 完成后隐藏信标
                     Knife_Beacon.SetActive(false);
+                    Tag_Knife.sprite = Tag_normal;
                 }
                 break;
             case 2: // 第三步：使用导管
+                Debug.Log("进入第三步检查逻辑");
                 // 显示导管信标
                 if(Pipe_Beacon != null)
                 {
                     Pipe_Beacon.SetActive(true);
+                    Debug.Log("Pipe_Beacon 已激活");
                 }
-                // 高亮接穗木标签
+                else
+                {
+                    Debug.LogError("Pipe_Beacon 为空！");
+                }
+                
+                bool inWorkingZone = IsObjectInWorkingZone(Pipe);
+                bool positionMatches = PositionCheck(Pipe);
+                Debug.Log($"第三步检查 - Pipe在WorkingZone内: {inWorkingZone}, 位置匹配: {positionMatches}");
+                
+                conditionMet = inWorkingZone && positionMatches;
+                if(Tag_Pipe != null)
+                {
+                    Tag_Pipe.sprite = Tag_yellow;
+                }
+                if(conditionMet)
+                {
+                    Debug.Log("第三步完成！");
+                    // 完成后隐藏信标
+                    Pipe_Beacon.SetActive(false);
+                    PlaySound(attachSound);
+                    Pipe.transform.position = Pipe_Beacon.transform.position;
+                    Pipe.GetComponent<BoxCollider>().enabled = false;
+                    Tag_Pipe.sprite = Tag_normal;
+                }
+                break;
+            case 3: // 第四步
+                conditionMet = IsObjectInWorkingZone(PlantB);
                 if(Tag_jiesumu != null)
                 {
                     Tag_jiesumu.sprite = Tag_yellow;
                 }
-                conditionMet = IsObjectInWorkingZone(Pipe) && PositionCheck(Pipe);
+                if(conditionMet)
+                {
+                    Tag_jiesumu.sprite = Tag_normal;
+                }
+                break;
+            case 4: // 第五步：再次使用刀具
+                // 显示第二个刀具信标
+                if(Knife_Beacon2 != null)
+                {
+                    Knife_Beacon2.SetActive(true);
+                }
+                conditionMet = IsObjectInWorkingZone(Knife) && AngleCheckB(Knife);
+                if(Tag_Knife != null)
+                {
+                    Tag_Knife.sprite = Tag_yellow;
+                }
                 if(conditionMet)
                 {
                     // 完成后隐藏信标
-                    Pipe_Beacon.SetActive(false);
+                    Knife_Beacon2.SetActive(false);
+                    Tag_Knife.sprite = Tag_normal;
                 }
                 break;
-            case 3: // 第四步：将PlantB移动到WorkingZone
-                conditionMet = IsObjectInWorkingZone(PlantB);
+            case 5: // 第六步
+                conditionMet = IsObjectInWorkingZone(PlantB_child) && PositionCheck(PlantB_child);
                 break;
-            // 可以继续添加更多步骤
+            case 6: // 第七步
+                conditionMet = IsObjectInWorkingZone(Clip) && PositionCheck(Clip);
+                if(Tag_Clip != null)
+                {
+                    Tag_Clip.sprite = Tag_yellow;
+                }
+                if(conditionMet)
+                {
+                    Tag_Clip.sprite = Tag_normal;
+                }
+                break;
         }
 
         if (conditionMet)
@@ -287,6 +350,33 @@ public class GirdingGuideManager : MonoBehaviour
 
         return positionMatch && angleMatch;
     }
+        private bool AngleCheckB(GameObject obj)
+    {
+        if (obj == null || Knife_Beacon2 == null) return false;
+
+        // 确保Beacon是激活状态
+        if (!Knife_Beacon2.activeInHierarchy)
+        {
+            Knife_Beacon2.SetActive(true);
+        }
+
+        // 计算位置差距
+        Vector3 positionDifference = obj.transform.position - Knife_Beacon2.transform.position;
+        float distance = positionDifference.magnitude;
+
+        // 计算角度差距
+        float angleDifference = Quaternion.Angle(obj.transform.rotation, Knife_Beacon2.transform.rotation);
+
+        // 检查是否在容差范围内
+        bool positionMatch = distance <= positionTolerance;
+        bool angleMatch = angleDifference <= angleTolerance;
+
+        // 调试信息
+        Debug.Log($"位置差距: {distance:F3}m (容差: {positionTolerance}m) - {(positionMatch ? "通过" : "未通过")}");
+        Debug.Log($"角度差距: {angleDifference:F1}° (容差: {angleTolerance}°) - {(angleMatch ? "通过" : "未通过")}");
+
+        return positionMatch && angleMatch;
+    }
 
     private bool PositionCheck(GameObject obj)
     {
@@ -300,30 +390,6 @@ public class GirdingGuideManager : MonoBehaviour
         Debug.Log($"pipe位置差距: {distance:F3}m (容差: {positionTolerance}m) - {(positionMatch ? "通过" : "未通过")}");
 
         return positionMatch;
-    }
-
-    /// <summary>
-    /// 更新导管信标的视觉反馈
-    /// </summary>
-    private void UpdatePipeBeaconFeedback(GameObject obj)
-    {
-        if (obj == null || Pipe_Beacon == null) return;
-
-        // 计算位置匹配程度
-        Vector3 positionDifference = obj.transform.position - Pipe_Beacon.transform.position;
-        float distance = positionDifference.magnitude;
-
-        // 如果Beacon有Renderer组件，根据距离改变颜色
-        Renderer beaconRenderer = Pipe_Beacon.GetComponent<Renderer>();
-        if (beaconRenderer != null)
-        {
-            // 计算匹配度（0-1）
-            float positionMatch = Mathf.Clamp01(1f - (distance / positionTolerance));
-
-            // 根据匹配度设置颜色（红色->绿色）
-            Color feedbackColor = Color.Lerp(Color.red, Color.green, positionMatch);
-            beaconRenderer.material.color = feedbackColor;
-        }
     }
 
     /// <summary>
@@ -367,46 +433,11 @@ public class GirdingGuideManager : MonoBehaviour
         if (WorkingZoneImage != null)
             WorkingZoneImage.sprite = green_workingzone;
 
-        // 处理当前步骤完成时的特殊逻辑
-        HandleStepCompletion(currentStep);
-
         // 将当前步骤设置为完成状态（黄色）
         SetProcessUIState(currentStep, true);
 
         // 延迟显示下一步
         StartCoroutine(ShowNextStepAfterDelay(1f));
-    }
-
-    /// <summary>
-    /// 处理步骤完成时的特殊逻辑
-    /// </summary>
-    private void HandleStepCompletion(int step)
-    {
-        switch (step)
-        {
-            case 0: // 第一步完成：将砧木标签设为正常状态
-                if (Tag_zhenmu != null)
-                {
-                    Tag_zhenmu.sprite = Tag_normal;
-                }
-                break;
-            case 1: // 第二步完成：隐藏刀具信标
-                if (Knife_Beacon != null)
-                {
-                    Knife_Beacon.SetActive(false);
-                }
-                break;
-            case 2: // 第三步完成：隐藏导管信标，将接穗木标签设为正常状态
-                if (Pipe_Beacon != null)
-                {
-                    Pipe_Beacon.SetActive(false);
-                }
-                if (Tag_jiesumu != null)
-                {
-                    Tag_jiesumu.sprite = Tag_normal;
-                }
-                break;
-        }
     }
 
     /// <summary>
@@ -498,11 +529,15 @@ public class GirdingGuideManager : MonoBehaviour
 
         // 隐藏所有信标
         if (Knife_Beacon != null) Knife_Beacon.SetActive(false);
+        if (Knife_Beacon2 != null) Knife_Beacon2.SetActive(false);
         if (Pipe_Beacon != null) Pipe_Beacon.SetActive(false);
 
         // 重置所有标签状态
         if (Tag_zhenmu != null) Tag_zhenmu.sprite = Tag_normal;
         if (Tag_jiesumu != null) Tag_jiesumu.sprite = Tag_normal;
+        if (Tag_Pipe != null) Tag_Pipe.sprite = Tag_normal;
+        if (Tag_Knife != null) Tag_Knife.sprite = Tag_normal;
+        if (Tag_Clip != null) Tag_Clip.sprite = Tag_normal;
 
         InitializeUI();
     }
