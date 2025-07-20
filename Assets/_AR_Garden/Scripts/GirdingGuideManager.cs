@@ -13,12 +13,16 @@ public class GirdingGuideManager : MonoBehaviour
 
     [Header("Tools")]
     [SerializeField] private GameObject Pipe;
+    [SerializeField] private GameObject Pipe_Beacon;
     [SerializeField] private GameObject Knife;
+    [SerializeField] private GameObject Knife_Beacon;
     [SerializeField] private GameObject Clip;
 
     [Header("Working Zone")]
     [SerializeField] private GameObject WorkingZone;
     [SerializeField] private Image WorkingZoneImage; // WorkingZone的Image组件
+    [SerializeField] private SpriteRenderer Tag_zhenmu;
+    [SerializeField] private SpriteRenderer Tag_jiesumu;
 
     [Header("UI Sprite")]
     [SerializeField] private Sprite green_workingzone;
@@ -27,6 +31,8 @@ public class GirdingGuideManager : MonoBehaviour
     [SerializeField] private Sprite Process_list_ICON_yellow;
     [SerializeField] private Sprite Process_list_normal;
     [SerializeField] private Sprite Process_list_yellow;
+    [SerializeField] private Sprite Tag_normal;
+    [SerializeField] private Sprite Tag_yellow;
 
     [Header("Process UI")]
     [SerializeField] private GameObject[] Process_list;
@@ -36,6 +42,10 @@ public class GirdingGuideManager : MonoBehaviour
     [SerializeField] private AudioClip correctSound;
     [SerializeField] private AudioClip incorrectSound;
     private AudioSource audioSource;
+
+    [Header("Angle Check Settings")]
+    [SerializeField] private float positionTolerance = 0.1f; // 位置容差（米）
+    [SerializeField] private float angleTolerance = 5f; // 角度容差（度）
     
     // 当前步骤
     private int currentStep = 0;
@@ -63,6 +73,26 @@ public class GirdingGuideManager : MonoBehaviour
     {
         // 检查当前步骤的完成条件
         CheckCurrentStepCompletion();
+
+        // 更新Beacon的视觉反馈
+        if (!stepCompleted)
+        {
+            switch (currentStep)
+            {
+                case 1: // 第二步：刀具匹配反馈
+                    if (Knife != null && Knife_Beacon != null)
+                    {
+                        UpdateBeaconVisualFeedback(Knife);
+                    }
+                    break;
+                case 2: // 第三步：导管位置反馈
+                    if (Pipe != null && Pipe_Beacon != null)
+                    {
+                        UpdatePipeBeaconFeedback(Pipe);
+                    }
+                    break;
+            }
+        }
     }
 
     /// <summary>
@@ -137,6 +167,16 @@ public class GirdingGuideManager : MonoBehaviour
             }
         }
 
+        // 初始化标签状态
+        if(Tag_zhenmu != null)
+        {
+            Tag_zhenmu.sprite = Tag_normal;
+        }
+        if(Tag_jiesumu != null)
+        {
+            Tag_jiesumu.sprite = Tag_normal;
+        }
+
         // 设置WorkingZone为初始状态
         if (WorkingZoneImage != null)
             WorkingZoneImage.sprite = red_workingzone;
@@ -154,13 +194,49 @@ public class GirdingGuideManager : MonoBehaviour
         switch (currentStep)
         {
             case 0: // 第一步：将PlantA移动到WorkingZone
+                // 高亮当前步骤的标签
+                if(Tag_zhenmu != null)
+                {
+                    Tag_zhenmu.sprite = Tag_yellow;
+                }
                 conditionMet = IsObjectInWorkingZone(PlantA);
+                if(conditionMet)
+                {
+                    Tag_zhenmu.sprite = Tag_normal;
+                }
                 break;
-            case 1: // 第二步：可以添加其他条件，比如使用工具等
-                // 示例：检查是否使用了刀具
-                conditionMet = IsObjectInWorkingZone(Knife);
+            case 1: // 第二步：使用刀具进行切割
+                // 显示刀具信标
+                if(Knife_Beacon != null)
+                {
+                    Knife_Beacon.SetActive(true);
+                }
+                conditionMet = IsObjectInWorkingZone(Knife) && AngleCheck(Knife);
+                if(conditionMet)
+                {
+                    // 完成后隐藏信标
+                    Knife_Beacon.SetActive(false);
+                }
                 break;
-            case 2: // 第三步
+            case 2: // 第三步：使用导管
+                // 显示导管信标
+                if(Pipe_Beacon != null)
+                {
+                    Pipe_Beacon.SetActive(true);
+                }
+                // 高亮接穗木标签
+                if(Tag_jiesumu != null)
+                {
+                    Tag_jiesumu.sprite = Tag_yellow;
+                }
+                conditionMet = IsObjectInWorkingZone(Pipe) && PositionCheck(Pipe);
+                if(conditionMet)
+                {
+                    // 完成后隐藏信标
+                    Pipe_Beacon.SetActive(false);
+                }
+                break;
+            case 3: // 第四步：将PlantB移动到WorkingZone
                 conditionMet = IsObjectInWorkingZone(PlantB);
                 break;
             // 可以继续添加更多步骤
@@ -182,6 +258,102 @@ public class GirdingGuideManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 检查物体与Beacon的角度和位置是否匹配
+    /// </summary>
+    private bool AngleCheck(GameObject obj)
+    {
+        if (obj == null || Knife_Beacon == null) return false;
+
+        // 确保Beacon是激活状态
+        if (!Knife_Beacon.activeInHierarchy)
+        {
+            Knife_Beacon.SetActive(true);
+        }
+
+        // 计算位置差距
+        Vector3 positionDifference = obj.transform.position - Knife_Beacon.transform.position;
+        float distance = positionDifference.magnitude;
+
+        // 计算角度差距
+        float angleDifference = Quaternion.Angle(obj.transform.rotation, Knife_Beacon.transform.rotation);
+
+        // 检查是否在容差范围内
+        bool positionMatch = distance <= positionTolerance;
+        bool angleMatch = angleDifference <= angleTolerance;
+
+        // 调试信息
+        Debug.Log($"位置差距: {distance:F3}m (容差: {positionTolerance}m) - {(positionMatch ? "通过" : "未通过")}");
+        Debug.Log($"角度差距: {angleDifference:F1}° (容差: {angleTolerance}°) - {(angleMatch ? "通过" : "未通过")}");
+
+        return positionMatch && angleMatch;
+    }
+
+    private bool PositionCheck(GameObject obj)
+    {
+        if (obj == null || Pipe_Beacon == null) return false;
+
+        Vector3 positionDifference = obj.transform.position - Pipe_Beacon.transform.position;
+
+        float distance = positionDifference.magnitude;
+        bool positionMatch = distance <= positionTolerance;
+
+        Debug.Log($"pipe位置差距: {distance:F3}m (容差: {positionTolerance}m) - {(positionMatch ? "通过" : "未通过")}");
+
+        return positionMatch;
+    }
+
+    /// <summary>
+    /// 更新导管信标的视觉反馈
+    /// </summary>
+    private void UpdatePipeBeaconFeedback(GameObject obj)
+    {
+        if (obj == null || Pipe_Beacon == null) return;
+
+        // 计算位置匹配程度
+        Vector3 positionDifference = obj.transform.position - Pipe_Beacon.transform.position;
+        float distance = positionDifference.magnitude;
+
+        // 如果Beacon有Renderer组件，根据距离改变颜色
+        Renderer beaconRenderer = Pipe_Beacon.GetComponent<Renderer>();
+        if (beaconRenderer != null)
+        {
+            // 计算匹配度（0-1）
+            float positionMatch = Mathf.Clamp01(1f - (distance / positionTolerance));
+
+            // 根据匹配度设置颜色（红色->绿色）
+            Color feedbackColor = Color.Lerp(Color.red, Color.green, positionMatch);
+            beaconRenderer.material.color = feedbackColor;
+        }
+    }
+
+    /// <summary>
+    /// 更新Beacon的视觉状态（可选，用于给用户提供视觉反馈）
+    /// </summary>
+    private void UpdateBeaconVisualFeedback(GameObject obj)
+    {
+        if (obj == null || Knife_Beacon == null) return;
+
+        // 计算匹配程度
+        Vector3 positionDifference = obj.transform.position - Knife_Beacon.transform.position;
+        float distance = positionDifference.magnitude;
+        float angleDifference = Quaternion.Angle(obj.transform.rotation, Knife_Beacon.transform.rotation);
+
+        // 如果Beacon有Renderer组件，可以根据匹配程度改变颜色
+        Renderer beaconRenderer = Knife_Beacon.GetComponent<Renderer>();
+        if (beaconRenderer != null)
+        {
+            // 计算匹配度（0-1）
+            float positionMatch = Mathf.Clamp01(1f - (distance / positionTolerance));
+            float angleMatch = Mathf.Clamp01(1f - (angleDifference / angleTolerance));
+            float overallMatch = (positionMatch + angleMatch) / 2f;
+
+            // 根据匹配度设置颜色（红色->黄色->绿色）
+            Color feedbackColor = Color.Lerp(Color.red, Color.green, overallMatch);
+            beaconRenderer.material.color = feedbackColor;
+        }
+    }
+
+    /// <summary>
     /// 完成当前步骤
     /// </summary>
     private void CompleteCurrentStep()
@@ -195,11 +367,46 @@ public class GirdingGuideManager : MonoBehaviour
         if (WorkingZoneImage != null)
             WorkingZoneImage.sprite = green_workingzone;
 
+        // 处理当前步骤完成时的特殊逻辑
+        HandleStepCompletion(currentStep);
+
         // 将当前步骤设置为完成状态（黄色）
         SetProcessUIState(currentStep, true);
 
         // 延迟显示下一步
         StartCoroutine(ShowNextStepAfterDelay(1f));
+    }
+
+    /// <summary>
+    /// 处理步骤完成时的特殊逻辑
+    /// </summary>
+    private void HandleStepCompletion(int step)
+    {
+        switch (step)
+        {
+            case 0: // 第一步完成：将砧木标签设为正常状态
+                if (Tag_zhenmu != null)
+                {
+                    Tag_zhenmu.sprite = Tag_normal;
+                }
+                break;
+            case 1: // 第二步完成：隐藏刀具信标
+                if (Knife_Beacon != null)
+                {
+                    Knife_Beacon.SetActive(false);
+                }
+                break;
+            case 2: // 第三步完成：隐藏导管信标，将接穗木标签设为正常状态
+                if (Pipe_Beacon != null)
+                {
+                    Pipe_Beacon.SetActive(false);
+                }
+                if (Tag_jiesumu != null)
+                {
+                    Tag_jiesumu.sprite = Tag_normal;
+                }
+                break;
+        }
     }
 
     /// <summary>
@@ -288,6 +495,15 @@ public class GirdingGuideManager : MonoBehaviour
         currentStep = 0;
         stepCompleted = false;
         objectsInWorkingZone.Clear();
+
+        // 隐藏所有信标
+        if (Knife_Beacon != null) Knife_Beacon.SetActive(false);
+        if (Pipe_Beacon != null) Pipe_Beacon.SetActive(false);
+
+        // 重置所有标签状态
+        if (Tag_zhenmu != null) Tag_zhenmu.sprite = Tag_normal;
+        if (Tag_jiesumu != null) Tag_jiesumu.sprite = Tag_normal;
+
         InitializeUI();
     }
 
