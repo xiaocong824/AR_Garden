@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using Oculus.Interaction;
 
 public class GirdingGuideManager : MonoBehaviour
 {
@@ -12,14 +13,18 @@ public class GirdingGuideManager : MonoBehaviour
     [SerializeField] private GameObject PlantB_child;
     [SerializeField] private GameObject PlantA_Base;
     [SerializeField] private GameObject PlantB_Base;
+    [SerializeField] private GameObject Plant_shadow;
 
     [Header("Tools")]
     [SerializeField] private GameObject Pipe;
     [SerializeField] private GameObject Pipe_Beacon;
+    [SerializeField] private GameObject Pipe_Beacon2;
     [SerializeField] private GameObject Knife;
     [SerializeField] private GameObject Knife_Beacon;
     [SerializeField] private GameObject Knife_Beacon2;
     [SerializeField] private GameObject Clip;
+    [SerializeField] private GameObject Clip_Beacon;
+    [SerializeField] private GameObject Clip_Beacon2;
 
     [Header("Working Zone")]
     [SerializeField] private GameObject WorkingZone;
@@ -49,6 +54,7 @@ public class GirdingGuideManager : MonoBehaviour
     [SerializeField] private AudioClip correctSound;
     [SerializeField] private AudioClip incorrectSound;
     [SerializeField] private AudioClip attachSound;
+    [SerializeField] private AudioClip[] stepSounds;
 
     private AudioSource audioSource;
 
@@ -75,6 +81,10 @@ public class GirdingGuideManager : MonoBehaviour
     [SerializeField] private GameObject Grab_JiesumuChildA;
     [SerializeField] private GameObject Grab_JiesumuChildB;
     [SerializeField] private GameObject Grab_Pipe;
+
+    [Header("EndUI")]
+    [SerializeField] private GameObject EndUI;
+    [SerializeField] private GameObject GuideUI;
 
     // 当前步骤
     private int currentStep = 0;
@@ -275,9 +285,17 @@ public class GirdingGuideManager : MonoBehaviour
                 break;
             case 1: // 第二步：使用刀具进行切割
                 // 显示刀具信标
-                if(Knife_Beacon != null)
+                if(Knife_Beacon != null && Knife != null)
                 {
-                    Knife_Beacon.SetActive(true);
+                    float dis = Vector3.Distance(Knife.transform.position, Knife_Beacon.transform.position);
+                    if (dis <= 0.1f)
+                    {
+                        Knife_Beacon.SetActive(true);
+                    }
+                    else
+                    {
+                        Knife_Beacon.SetActive(false);
+                    }
                 }
                 conditionMet = IsObjectInWorkingZone(Knife) && AngleCheck(Knife);
                 if(Tag_Knife != null)
@@ -309,7 +327,7 @@ public class GirdingGuideManager : MonoBehaviour
                 
                 bool inWorkingZone = IsObjectInWorkingZone(Pipe);
                 bool positionMatches = PositionCheck(Pipe);
-                Debug.Log($"第三步检查 - Pipe在WorkingZone内: {inWorkingZone}, 位置匹配: {positionMatches}");
+                //Debug.Log($"第三步检查 - Pipe在WorkingZone内: {inWorkingZone}, 位置匹配: {positionMatches}");
                 
                 conditionMet = inWorkingZone && positionMatches;
                 if(Tag_Pipe != null)
@@ -321,10 +339,14 @@ public class GirdingGuideManager : MonoBehaviour
                     Debug.Log("第三步完成！");
                     // 完成后隐藏信标
                     Grab_Pipe.SetActive(false);
-                    Pipe.transform.SetParent(PlantA.transform);
-                    Pipe.transform.position = Pipe_Beacon.transform.position;
-                    Pipe.transform.localScale = Pipe_Beacon.transform.localScale;
+                    // 调试信息：设置前的位置
+                    
+                    // 使用协程确保设置顺序和稳定性
+                    // StartCoroutine(SetPipeTransform(Pipe, Pipe_Beacon, PlantA_Base));
                     Pipe_Beacon.SetActive(false);
+                    Pipe.SetActive(false);
+                    Pipe_Beacon2.SetActive(true);
+
                     PlaySound(attachSound);
                     Tag_Pipe.sprite = Tag_normal;
                 }
@@ -342,9 +364,14 @@ public class GirdingGuideManager : MonoBehaviour
                 break;
             case 4: // 第五步：再次使用刀具
                 // 显示第二个刀具信标
-                if(Knife_Beacon2 != null)
+                float dis2 = Vector3.Distance(Knife.transform.position, Knife_Beacon2.transform.position);
+                if (dis2 <= 0.1f)
                 {
                     Knife_Beacon2.SetActive(true);
+                }
+                else
+                {
+                    Knife_Beacon2.SetActive(false);
                 }
                 conditionMet = IsObjectInWorkingZone(Knife) && AngleCheckB(Knife);
                 if(Tag_Knife != null)
@@ -366,21 +393,27 @@ public class GirdingGuideManager : MonoBehaviour
                 if(conditionMet)
                 {
                     Grab_ZhanmuChildA.SetActive(true);
-                    Grab_ZhanmuChildB.SetActive(false);
-                    PlantB_child.transform.SetParent(PlantA.transform);
-                    PlantB_child.transform.localPosition = Vector3.zero;
-                    PlantB_child.transform.rotation = PlantA_Base.transform.rotation;
+                    Grab_ZhanmuChildB.SetActive(true);
+                    Grab_JiesumuChildB.SetActive(true);
+                    PlantB_child.SetActive(false);
+                    Plant_shadow.SetActive(true);
                 }
                 break;
             case 6: // 第七步
-                conditionMet = IsObjectInWorkingZone(Clip) && PositionCheck(Clip);
+                conditionMet = IsObjectInWorkingZone(Clip) && ClipPositionCheck(Clip);
                 if(Tag_Clip != null)
                 {
                     Tag_Clip.sprite = Tag_yellow;
+                    Clip_Beacon.SetActive(true);
                 }
                 if(conditionMet)
                 {
                     Tag_Clip.sprite = Tag_normal;
+                    Clip_Beacon.SetActive(false);
+                    Clip_Beacon2.SetActive(true);
+                    Clip.SetActive(false);
+                    EndUI.SetActive(true);
+                    GuideUI.SetActive(false);
                 }
                 break;
         }
@@ -425,8 +458,8 @@ public class GirdingGuideManager : MonoBehaviour
         bool angleMatch = angleDifference <= angleTolerance;
 
         // 调试信息
-        Debug.Log($"位置差距: {distance:F3}m (容差: {positionTolerance}m) - {(positionMatch ? "通过" : "未通过")}");
-        Debug.Log($"角度差距: {angleDifference:F1}° (容差: {angleTolerance}°) - {(angleMatch ? "通过" : "未通过")}");
+        // Debug.Log($"位置差距: {distance:F3}m (容差: {positionTolerance}m) - {(positionMatch ? "通过" : "未通过")}");
+        // Debug.Log($"角度差距: {angleDifference:F1}° (容差: {angleTolerance}°) - {(angleMatch ? "通过" : "未通过")}");
 
         return positionMatch && angleMatch;
     }
@@ -452,8 +485,8 @@ public class GirdingGuideManager : MonoBehaviour
         bool angleMatch = angleDifference <= angleTolerance;
 
         // 调试信息
-        Debug.Log($"位置差距: {distance:F3}m (容差: {positionTolerance}m) - {(positionMatch ? "通过" : "未通过")}");
-        Debug.Log($"角度差距: {angleDifference:F1}° (容差: {angleTolerance}°) - {(angleMatch ? "通过" : "未通过")}");
+        // Debug.Log($"位置差距: {distance:F3}m (容差: {positionTolerance}m) - {(positionMatch ? "通过" : "未通过")}");
+        // Debug.Log($"角度差距: {angleDifference:F1}° (容差: {angleTolerance}°) - {(angleMatch ? "通过" : "未通过")}");
 
         return positionMatch && angleMatch;
     }
@@ -467,7 +500,7 @@ public class GirdingGuideManager : MonoBehaviour
         float distance = positionDifference.magnitude;
         bool positionMatch = distance <= positionTolerance;
 
-        Debug.Log($"pipe位置差距: {distance:F3}m (容差: {positionTolerance}m) - {(positionMatch ? "通过" : "未通过")}");
+        //Debug.Log($"pipe位置差距: {distance:F3}m (容差: {positionTolerance}m) - {(positionMatch ? "通过" : "未通过")}");
 
         return positionMatch;
     }
@@ -477,6 +510,20 @@ public class GirdingGuideManager : MonoBehaviour
         if (obj == null || PlantA_Base == null) return false;
 
         Vector3 positionDifference = obj.transform.position - PlantA_Base.transform.position;
+
+        float distance = positionDifference.magnitude;
+        bool positionMatch = distance <= positionTolerance;
+
+        Debug.Log($"pipe位置差距: {distance:F3}m (容差: {positionTolerance}m) - {(positionMatch ? "通过" : "未通过")}");
+
+        return positionMatch;
+    }
+
+    private bool ClipPositionCheck(GameObject obj)
+    {
+        if (obj == null || Clip_Beacon == null) return false;
+
+        Vector3 positionDifference = obj.transform.position - Clip_Beacon.transform.position;
 
         float distance = positionDifference.magnitude;
         bool positionMatch = distance <= positionTolerance;
@@ -569,6 +616,9 @@ public class GirdingGuideManager : MonoBehaviour
         currentStep++;
         stepCompleted = false;
 
+        // 播放对应步骤的旁白音频
+        PlayStepSound(currentStep);
+
         // 重置WorkingZone为红色状态
         if (WorkingZoneImage != null)
             WorkingZoneImage.sprite = red_workingzone;
@@ -609,6 +659,23 @@ public class GirdingGuideManager : MonoBehaviour
         if (audioSource != null && clip != null)
         {
             audioSource.PlayOneShot(clip);
+        }
+    }
+
+    /// <summary>
+    /// 播放每一步的旁白音频
+    /// </summary>
+    public void PlayStepSound(int stepIndex)
+    {
+        if (stepSounds != null && stepIndex >= 0 && stepIndex < stepSounds.Length)
+        {
+            if (stepSounds[stepIndex] != null)
+            {
+                if (audioSource.isPlaying)
+                    audioSource.Stop();
+                audioSource.clip = stepSounds[stepIndex];
+                audioSource.Play();
+            }
         }
     }
 
@@ -704,6 +771,61 @@ public class GirdingGuideManager : MonoBehaviour
     public void JumpToStep7() { JumpToStep(6); }
 
     /// <summary>
+    /// 设置 Pipe 变换的协程，确保位置和缩放都正确
+    /// </summary>
+    // private IEnumerator SetPipeTransform(GameObject pipe, GameObject beacon, GameObject parent)
+    // {
+    //     // 保存目标的世界变换
+    //     Vector3 targetWorldPosition = beacon.transform.position;
+    //     Quaternion targetWorldRotation = beacon.transform.rotation;
+    //     Vector3 targetWorldScale = beacon.transform.lossyScale; // 使用世界缩放
+        
+    //     Debug.Log($"目标世界位置: {targetWorldPosition}");
+    //     Debug.Log($"目标世界旋转: {targetWorldRotation.eulerAngles}");
+    //     Debug.Log($"目标世界缩放: {targetWorldScale}");
+    //     Debug.Log($"Beacon本地缩放: {beacon.transform.localScale}");
+        
+    //     // 设置父对象，保持世界位置
+    //     pipe.transform.SetParent(parent.transform, true);
+    //     yield return null;
+        
+    //     // 计算需要的本地缩放来匹配世界缩放
+    //     Vector3 parentWorldScale = parent.transform.lossyScale;
+    //     Vector3 requiredLocalScale = new Vector3(
+    //         targetWorldScale.x / parentWorldScale.x,
+    //         targetWorldScale.y / parentWorldScale.y,
+    //         targetWorldScale.z / parentWorldScale.z
+    //     );
+        
+    //     Debug.Log($"父对象世界缩放: {parentWorldScale}");
+    //     Debug.Log($"计算的本地缩放: {requiredLocalScale}");
+        
+    //     // 应用计算的本地缩放
+    //     pipe.transform.localScale = requiredLocalScale;
+    //     yield return null;
+        
+    //     // 确保位置和旋转正确
+    //     pipe.transform.position = targetWorldPosition;
+    //     pipe.transform.rotation = targetWorldRotation;
+    //     yield return null;
+        
+    //     // 最终验证
+    //     Debug.Log($"Pipe 最终世界位置: {pipe.transform.position}");
+    //     Debug.Log($"Pipe 最终世界旋转: {pipe.transform.rotation.eulerAngles}");
+    //     Debug.Log($"Pipe 最终世界缩放: {pipe.transform.lossyScale}");
+    //     Debug.Log($"Pipe 最终本地缩放: {pipe.transform.localScale}");
+        
+    //     // 验证是否匹配
+    //     float positionDiff = Vector3.Distance(pipe.transform.position, targetWorldPosition);
+    //     float rotationDiff = Quaternion.Angle(pipe.transform.rotation, targetWorldRotation);
+    //     Vector3 scaleDiff = pipe.transform.lossyScale - targetWorldScale;
+        
+    //     Debug.Log($"位置差距: {positionDiff:F6}");
+    //     Debug.Log($"旋转差距: {rotationDiff:F2}度");
+    //     Debug.Log($"缩放差距: {scaleDiff}");
+    // }
+
+    /// <summary>
     /// 跳转到指定步骤
     /// </summary>
     private void JumpToStep(int stepIndex)
@@ -730,6 +852,12 @@ public class GirdingGuideManager : MonoBehaviour
             WorkingZoneImage.sprite = red_workingzone;
         
         Debug.Log($"跳转到第{currentStep + 1}步");
+    }
+
+    public void reStartGame()
+    {
+        // 重新加载当前场景，实现流程重置
+        UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
     }
 }
 
@@ -760,4 +888,5 @@ public class WorkingZoneDetector : MonoBehaviour
             manager.OnObjectExitWorkingZone(other.gameObject);
         }
     }
+
 }
