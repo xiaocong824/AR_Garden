@@ -10,6 +10,8 @@ public class GirdingGuideManager : MonoBehaviour
     [SerializeField] private GameObject PlantB;
     [SerializeField] private GameObject PlantA_child;
     [SerializeField] private GameObject PlantB_child;
+    [SerializeField] private GameObject PlantA_Base;
+    [SerializeField] private GameObject PlantB_Base;
 
     [Header("Tools")]
     [SerializeField] private GameObject Pipe;
@@ -53,7 +55,27 @@ public class GirdingGuideManager : MonoBehaviour
     [Header("Angle Check Settings")]
     [SerializeField] private float positionTolerance = 0.1f; // 位置容差（米）
     [SerializeField] private float angleTolerance = 5f; // 角度容差（度）
-    
+
+    [Header("Debug Settings")]
+    [SerializeField] private bool enableDebugMode = false; // 启用调试模式
+    [SerializeField] private bool skipStep1 = false; // 跳过第一步
+    [SerializeField] private bool skipStep2 = false; // 跳过第二步
+    [SerializeField] private bool skipStep3 = false; // 跳过第三步
+    [SerializeField] private bool skipStep4 = false; // 跳过第四步
+    [SerializeField] private bool skipStep5 = false; // 跳过第五步
+    [SerializeField] private bool skipStep6 = false; // 跳过第六步
+    [SerializeField] private bool skipStep7 = false; // 跳过第七步
+    [SerializeField] private int jumpToStep = -1; // 直接跳到指定步骤 (-1表示不跳转)
+
+    [Header("GrabRelated")]
+    [SerializeField] private GameObject Grab_Zhanmu;
+    [SerializeField] private GameObject Grab_Jiesumu;
+    [SerializeField] private GameObject Grab_ZhanmuChildA;
+    [SerializeField] private GameObject Grab_ZhanmuChildB;
+    [SerializeField] private GameObject Grab_JiesumuChildA;
+    [SerializeField] private GameObject Grab_JiesumuChildB;
+    [SerializeField] private GameObject Grab_Pipe;
+
     // 当前步骤
     private int currentStep = 0;
     private bool stepCompleted = false;
@@ -72,8 +94,42 @@ public class GirdingGuideManager : MonoBehaviour
         // 设置WorkingZone检测器
         SetupWorkingZoneDetector();
 
+        // 处理调试跳转
+        HandleDebugJump();
+
         // 初始化UI状态
         InitializeUI();
+
+        // 初始化GrabRelated
+        InitializeGrabRelated();
+    }
+
+    private void InitializeGrabRelated()
+    {
+        if(Grab_Zhanmu != null)
+        {
+            Grab_Zhanmu.SetActive(true);
+        }
+        if(Grab_Jiesumu != null)
+        {
+            Grab_Jiesumu.SetActive(true);
+        }
+        if(Grab_ZhanmuChildA != null)
+        {
+            Grab_ZhanmuChildA.SetActive(false);
+        }
+        if(Grab_ZhanmuChildB != null)
+        {
+            Grab_ZhanmuChildB.SetActive(false);
+        }
+        if(Grab_JiesumuChildA != null)
+        {
+            Grab_JiesumuChildA.SetActive(false);
+        }
+        if(Grab_JiesumuChildB != null)
+        {
+            Grab_JiesumuChildB.SetActive(false);
+        }
     }
 
     void Update()
@@ -187,6 +243,14 @@ public class GirdingGuideManager : MonoBehaviour
     {
         if (stepCompleted) return;
 
+        // 检查是否需要跳过当前步骤
+        if (enableDebugMode && ShouldSkipCurrentStep())
+        {
+            Debug.Log($"调试模式：跳过第{currentStep + 1}步");
+            CompleteCurrentStep();
+            return;
+        }
+
         bool conditionMet = false;
         
         // 添加当前步骤的调试信息
@@ -225,6 +289,9 @@ public class GirdingGuideManager : MonoBehaviour
                     // 完成后隐藏信标
                     Knife_Beacon.SetActive(false);
                     Tag_Knife.sprite = Tag_normal;
+                    Grab_Zhanmu.SetActive(false);
+                    Grab_ZhanmuChildA.SetActive(true);
+                    Grab_ZhanmuChildB.SetActive(true);
                 }
                 break;
             case 2: // 第三步：使用导管
@@ -253,10 +320,12 @@ public class GirdingGuideManager : MonoBehaviour
                 {
                     Debug.Log("第三步完成！");
                     // 完成后隐藏信标
+                    Grab_Pipe.SetActive(false);
+                    Pipe.transform.SetParent(PlantA.transform);
+                    Pipe.transform.position = Pipe_Beacon.transform.position;
+                    Pipe.transform.localScale = Pipe_Beacon.transform.localScale;
                     Pipe_Beacon.SetActive(false);
                     PlaySound(attachSound);
-                    Pipe.transform.position = Pipe_Beacon.transform.position;
-                    Pipe.GetComponent<BoxCollider>().enabled = false;
                     Tag_Pipe.sprite = Tag_normal;
                 }
                 break;
@@ -287,10 +356,21 @@ public class GirdingGuideManager : MonoBehaviour
                     // 完成后隐藏信标
                     Knife_Beacon2.SetActive(false);
                     Tag_Knife.sprite = Tag_normal;
+                    Grab_Jiesumu.SetActive(false);
+                    Grab_JiesumuChildA.SetActive(true);
+                    Grab_JiesumuChildB.SetActive(true);
                 }
                 break;
             case 5: // 第六步
-                conditionMet = IsObjectInWorkingZone(PlantB_child) && PositionCheck(PlantB_child);
+                conditionMet = IsObjectInWorkingZone(PlantB_child) && JiaJiePositionCheck(PlantB_child);
+                if(conditionMet)
+                {
+                    Grab_ZhanmuChildA.SetActive(true);
+                    Grab_ZhanmuChildB.SetActive(false);
+                    PlantB_child.transform.SetParent(PlantA.transform);
+                    PlantB_child.transform.localPosition = Vector3.zero;
+                    PlantB_child.transform.rotation = PlantA_Base.transform.rotation;
+                }
                 break;
             case 6: // 第七步
                 conditionMet = IsObjectInWorkingZone(Clip) && PositionCheck(Clip);
@@ -383,6 +463,20 @@ public class GirdingGuideManager : MonoBehaviour
         if (obj == null || Pipe_Beacon == null) return false;
 
         Vector3 positionDifference = obj.transform.position - Pipe_Beacon.transform.position;
+
+        float distance = positionDifference.magnitude;
+        bool positionMatch = distance <= positionTolerance;
+
+        Debug.Log($"pipe位置差距: {distance:F3}m (容差: {positionTolerance}m) - {(positionMatch ? "通过" : "未通过")}");
+
+        return positionMatch;
+    }
+
+    private bool JiaJiePositionCheck(GameObject obj)
+    {
+        if (obj == null || PlantA_Base == null) return false;
+
+        Vector3 positionDifference = obj.transform.position - PlantA_Base.transform.position;
 
         float distance = positionDifference.magnitude;
         bool positionMatch = distance <= positionTolerance;
@@ -550,6 +644,92 @@ public class GirdingGuideManager : MonoBehaviour
     {
         if (!stepCompleted)
             CompleteCurrentStep();
+    }
+
+    /// <summary>
+    /// 处理调试模式的跳转
+    /// </summary>
+    private void HandleDebugJump()
+    {
+        if (!enableDebugMode) return;
+
+        // 如果设置了直接跳转到指定步骤
+        if (jumpToStep >= 0 && jumpToStep < Process_list.Length)
+        {
+            currentStep = jumpToStep;
+            Debug.Log($"调试模式：直接跳转到第{currentStep + 1}步");
+        }
+    }
+
+    /// <summary>
+    /// 检查是否应该跳过当前步骤
+    /// </summary>
+    private bool ShouldSkipCurrentStep()
+    {
+        switch (currentStep)
+        {
+            case 0: return skipStep1;
+            case 1: return skipStep2;
+            case 2: return skipStep3;
+            case 3: return skipStep4;
+            case 4: return skipStep5;
+            case 5: return skipStep6;
+            case 6: return skipStep7;
+            default: return false;
+        }
+    }
+
+    /// <summary>
+    /// 直接跳转到指定步骤（调试用）
+    /// </summary>
+    [ContextMenu("Jump to Step 1")]
+    public void JumpToStep1() { JumpToStep(0); }
+    
+    [ContextMenu("Jump to Step 2")]
+    public void JumpToStep2() { JumpToStep(1); }
+    
+    [ContextMenu("Jump to Step 3")]
+    public void JumpToStep3() { JumpToStep(2); }
+    
+    [ContextMenu("Jump to Step 4")]
+    public void JumpToStep4() { JumpToStep(3); }
+    
+    [ContextMenu("Jump to Step 5")]
+    public void JumpToStep5() { JumpToStep(4); }
+    
+    [ContextMenu("Jump to Step 6")]
+    public void JumpToStep6() { JumpToStep(5); }
+    
+    [ContextMenu("Jump to Step 7")]
+    public void JumpToStep7() { JumpToStep(6); }
+
+    /// <summary>
+    /// 跳转到指定步骤
+    /// </summary>
+    private void JumpToStep(int stepIndex)
+    {
+        if (stepIndex < 0 || stepIndex >= Process_list.Length) return;
+        
+        currentStep = stepIndex;
+        stepCompleted = false;
+        
+        // 隐藏所有步骤UI
+        for (int i = 0; i < Process_list.Length; i++)
+        {
+            Process_list[i].SetActive(false);
+            Process_list_ICON[i].SetActive(false);
+        }
+        
+        // 显示当前步骤UI
+        Process_list[currentStep].SetActive(true);
+        Process_list_ICON[currentStep].SetActive(true);
+        SetProcessUIState(currentStep, false);
+        
+        // 重置WorkingZone UI
+        if (WorkingZoneImage != null)
+            WorkingZoneImage.sprite = red_workingzone;
+        
+        Debug.Log($"跳转到第{currentStep + 1}步");
     }
 }
 
