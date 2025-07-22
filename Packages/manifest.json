@@ -1,7 +1,6 @@
 {
   "dependencies": {
     "com.atteneder.gltfast": "https://github.com/atteneder/glTFast.git",
-    "com.boxqkrtm.ide.cursor": "https://github.com/boxqkrtm/com.unity.ide.cursor.git",
     "com.meta.xr.sdk.all": "72.0.0",
     "com.unity.collab-proxy": "2.8.2",
     "com.unity.feature.development": "1.0.1",
